@@ -53,12 +53,12 @@ abstract class AppBuilder {
       }
     }
 
-    buildArguments.addAll([
-      '--dart-define',
-      'FLUTTER_BUILD_NAME=$appBuildName',
-      '--dart-define',
-      'FLUTTER_BUILD_NUMBER=$appBuildNumber',
-    ]);
+    // buildArguments.addAll([
+    //   '--dart-define',
+    //   'FLUTTER_BUILD_NAME=$appBuildName',
+    //   '--dart-define',
+    //   'FLUTTER_BUILD_NUMBER=$appBuildNumber',
+    // ]);
 
     ProcessResult processResult = await flutter.withEnv(environment).build(
       [buildSubcommand, ...buildArguments],
@@ -67,6 +67,8 @@ abstract class AppBuilder {
     if (processResult.exitCode != 0) {
       throw BuildError('${processResult.stderr}');
     }
+    print('processResult: ${processResult.stdout}');
+    print('------------------------------------------------');
 
     return resultResolver.resolve(config)..duration = time.elapsed;
   }

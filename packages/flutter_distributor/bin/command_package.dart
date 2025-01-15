@@ -51,6 +51,18 @@ class CommandPackage extends Command {
       help: 'Whether or not to skip \'flutter clean\' before packaging.',
     );
 
+    argParser.addMultiOption(
+      'build-args',
+      valueHelp: 'any args supported by "flutter build subcommand"',
+      help: [
+        'Arguments to pass directly to flutter build subcommand.',
+        'You may add multiple "--build-args=\'key=value\'"pairs.',
+        'example:',
+        '  --build-args=\'build-number=1.0.0\'',
+        '  --build-args=\'target-platform=linux-arm64\'',
+      ].join('\n'),
+    );
+
     argParser.addOption(
       'flutter-build-args',
       valueHelp: 'verbose,obfuscate',
@@ -100,7 +112,7 @@ class CommandPackage extends Command {
   String get description => [
         'Package the current Flutter application',
         '',
-        'Options named --build-* are passed to \'flutter build\' as is',
+        '\'key=value\' pairs defined by --build-args are passed to \'flutter build\' as is',
         'Please consult the \'flutter build\' CLI help for more informations.',
       ].join('\n');
 
@@ -113,10 +125,8 @@ class CommandPackage extends Command {
         .toList();
     final String? channel = argResults?['channel'];
     final String? artifactName = argResults?['artifact-name'];
-    final String? flutterBuildArgs = argResults?['flutter-build-args'];
     final bool isSkipClean = argResults?.wasParsed('skip-clean') ?? false;
-    final Map<String, dynamic> buildArguments =
-        _generateBuildArgs(flutterBuildArgs);
+    final Map<String, dynamic> buildArguments = _generateBuildArgs();
 
     // At least `platform` and one `targets` is required for flutter build
     if (platform == null) {
@@ -139,46 +149,38 @@ class CommandPackage extends Command {
     );
   }
 
-  Map<String, dynamic> _generateBuildArgs(String? flutterBuildArgs) {
+  Map<String, dynamic> _generateBuildArgs() {
     Map<String, dynamic> buildArguments = {};
+    final args = argResults?['build-args'];
 
-    if (argResults?.options == null) return buildArguments;
+    if (args == null) return buildArguments;
 
-    for (var option in argResults!.options) {
-      if (!option.startsWith('build-')) continue;
-      dynamic value = argResults?[option];
-
-      if (value is List) {
-        // ignore: prefer_for_elements_to_map_fromiterable
-        value = Map.fromIterable(
-          value,
-          key: (e) => e.split('=')[0],
-          value: (e) => e.split('=')[1],
-        );
+    final List<String> dartDefine = [];
+    final List<String> dartDefineFromFile = [];
+    for (var kv in args) {
+      final kvl = kv.split('=');
+      final value = kv.replaceFirst(RegExp('${kvl?[0]}=?'), '');
+      if (kvl?[0] == 'dart-define') {
+        dartDefine.add(value);
+      } else if (kvl[0] == 'dart-define-from-file') {
+        dartDefineFromFile.add(value);
+      } else {
+        buildArguments.putIfAbsent(kvl?[0], () => value);
       }
-
+    }
+    if (dartDefine.isNotEmpty) {
       buildArguments.putIfAbsent(
-        option.replaceAll('build-', ''),
-        () => value,
+        'dart-define',
+        () => dartDefine,
       );
     }
-
-    for (var arg in flutterBuildArgs?.split(',') ?? <String>[]) {
-      if (arg.split('=').length == 2) {
-        buildArguments.putIfAbsent(
-          arg.split('=').first,
-          () => arg.split('=').last,
-        );
-      } else if (arg.split('=').length == 1) {
-        buildArguments.putIfAbsent(
-          arg.split('=')[0],
-          () => true,
-        );
-      } else {
-        buildArguments.putIfAbsent(arg, () => true);
-      }
+    if (dartDefineFromFile.isNotEmpty) {
+      buildArguments.putIfAbsent(
+        'dart-define-from-file',
+        () => dartDefineFromFile,
+      );
     }
-
+    print(buildArguments);
     return buildArguments;
   }
 }

@@ -24,7 +24,7 @@ class InnoSetupCompiler {
       return false;
     }
 
-    file.deleteSync(recursive: true);
+    // file.deleteSync(recursive: true);
     return true;
   }
 }
